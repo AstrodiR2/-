@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Хрестики-Нулики</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@300;400&display=swap');
+  :root {
+    --x-color: #ff4d6d;
+    --o-color: #4cc9f0;
+    --bg: #0a0a0f;
+    --card: #12121a;
+    --border: #ffffff10;
+    --text: #f0f0f0;
+    --muted: #555;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background-image: radial-gradient(ellipse at 20% 50%, #ff4d6d08 0%, transparent 60%),
+                      radial-gradient(ellipse at 80% 50%, #4cc9f008 0%, transparent 60%);
+  }
+  h1 { font-family: 'Unbounded', sans-serif; font-size: clamp(1.2rem, 5vw, 1.8rem); font-weight: 900; letter-spacing: -1px; margin-bottom: 8px; text-align: center; }
+  h1 span:nth-child(1) { color: var(--x-color); }
+  h1 span:nth-child(3) { color: var(--o-color); }
+  .subtitle { color: var(--muted); font-size: 0.75rem; margin-bottom: 28px; text-align: center; }
+  .screen { width: 100%; max-width: 340px; }
+  #lobby { display: flex; flex-direction: column; gap: 12px; }
+  .input-group { display: flex; flex-direction: column; gap: 6px; }
+  label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  input { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 0.9rem; outline: none; transition: border 0.2s; }
+  input:focus { border-color: #ffffff30; }
+  .btn { padding: 14px; border-radius: 10px; border: none; font-family: 'Unbounded', sans-serif; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: transform 0.15s; letter-spacing: 0.5px; }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--x-color); color: white; }
+  .btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+  .divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 0.7rem; }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  #waiting { text-align: center; display: none; flex-direction: column; align-items: center; gap: 16px; }
+  .room-code { font-family: 'Unbounded', sans-serif; font-size: 2.5rem; font-weight: 900; letter-spacing: 8px; color: var(--o-color); }
+  .pulse { width: 12px; height: 12px; background: var(--x-color); border-radius: 50%; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
+  #game { display: none; flex-direction: column; align-items: center; gap: 20px; }
+  .status-bar { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 20px; font-size: 0.8rem; text-align: center; width: 100%; }
+  .status-bar strong { font-family: 'Unbounded', sans-serif; font-size: 0.85rem; }
+  .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; }
+  .cell { aspect-ratio: 1; background: var(--card); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: 'Unbounded', sans-serif; font-size: clamp(1.8rem, 8vw, 2.5rem); font-weight: 900; cursor: pointer; transition: background 0.15s, transform 0.15s; user-select: none; }
+  .cell:hover:not(.taken) { background: #ffffff08; transform: scale(1.03); }
+  .cell.taken { cursor: default; }
+  .cell.x { color: var(--x-color); }
+  .cell.o { color: var(--o-color); }
+  .scores { display: flex; gap: 12px; width: 100%; }
+  .score-card { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px; text-align: center; }
+  .score-card .name { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .score-card .num { font-family: 'Unbounded', sans-serif; font-size: 1.5rem; font-weight: 900; }
+  .score-card.x .num { color: var(--x-color); }
+  .score-card.o .num { color: var(--o-color); }
+  .overlay { position: fixed; inset: 0; background: #0a0a0fdd; display: none; align-items: center; justify-content: center; z-index: 100; }
+  .overlay.show { display: flex; }
+  .overlay-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 32px 24px; text-align: center; max-width: 280px; width: 90%; }
+  .overlay-card .emoji { font-size: 3rem; margin-bottom: 12px; }
+  .overlay-card h2 { font-family: 'Unbounded', sans-serif; font-size: 1.1rem; margin-bottom: 8px; }
+  .overlay-card p { color: var(--muted); font-size: 0.8rem; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+
+<h1><span>X</span><span> vs </span><span>O</span></h1>
+<p class="subtitle">мультиплеєр · два гравці</p>
+
+<div class="screen" id="lobby">
+  <div class="input-group">
+    <label>Твоє ім'я</label>
+    <input type="text" id="nameInput" placeholder="Введи нікнейм" maxlength="16">
+  </div>
+  <button class="btn btn-primary" onclick="createRoom()">🎮 Створити кімнату</button>
+  <div class="divider">або</div>
+  <div class="input-group">
+    <label>Код кімнати</label>
+    <input type="text" id="roomInput" placeholder="XXXX" maxlength="4" style="text-transform:uppercase;letter-spacing:4px;font-family:'Unbounded',sans-serif;">
+  </div>
+  <button class="btn btn-secondary" onclick="joinRoom()">🚀 Приєднатись</button>
+</div>
+
+<div class="screen" id="waiting">
+  <p style="color:var(--muted);font-size:0.75rem;margin-bottom:8px;">КОД КІМНАТИ</p>
+  <div class="room-code" id="displayCode"></div>
+  <p style="color:var(--muted);font-size:0.8rem;">Відправ цей код другу</p>
+  <div style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:0.8rem;">
+    <div class="pulse"></div>
+    Чекаємо на гравця...
+  </div>
+  <button class="btn btn-secondary" style="width:100%;margin-top:8px;" onclick="copyCode()">📋 Копіювати код</button>
+</div>
+
+<div class="screen" id="game">
+  <div class="scores">
+    <div class="score-card x">
+      <div class="name" id="p1name">Гравець 1</div>
+      <div class="num" id="p1score">0</div>
+    </div>
+    <div class="score-card" style="display:flex;align-items:center;justify-content:center;">
+      <span style="color:var(--muted);font-size:0.7rem;font-family:'Unbounded',sans-serif;">VS</span>
+    </div>
+    <div class="score-card o">
+      <div class="name" id="p2name">Гравець 2</div>
+      <div class="num" id="p2score">0</div>
+    </div>
+  </div>
+  <div class="status-bar" id="statusBar"><strong>Завантаження...</strong></div>
+  <div class="board">
+    <div class="cell" onclick="makeMove(0)"></div>
+    <div class="cell" onclick="makeMove(1)"></div>
+    <div class="cell" onclick="makeMove(2)"></div>
+    <div class="cell" onclick="makeMove(3)"></div>
+    <div class="cell" onclick="makeMove(4)"></div>
+    <div class="cell" onclick="makeMove(5)"></div>
+    <div class="cell" onclick="makeMove(6)"></div>
+    <div class="cell" onclick="makeMove(7)"></div>
+    <div class="cell" onclick="makeMove(8)"></div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="overlay-card">
+    <div class="emoji" id="overlayEmoji">🎉</div>
+    <h2 id="overlayTitle">Перемога!</h2>
+    <p id="overlayText">Ти виграв!</p>
+    <button class="btn btn-primary" style="width:100%" onclick="resetGame()">Ще раз</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+<script>
+  firebase.initializeApp({
+    databaseURL: "https://tg-game-dd166-default-rtdb.europe-west1.firebasedatabase.app"
+  });
+  const db = firebase.database();
+  const WINS = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  let myRole = null, roomCode = null, myName = '', gameRef = null;
+
+  function createRoom() {
+    myName = document.getElementById('nameInput').value.trim() || 'Гравець 1';
+    roomCode = Math.random().toString(36).substring(2,6).toUpperCase();
+    myRole = 'X';
+    gameRef = db.ref('games/' + roomCode);
+    gameRef.set({ board: Array(9).fill(''), turn: 'X', players: { X: myName, O: '' }, status: 'waiting', scores: { X: 0, O: 0 } });
+    document.getElementById('displayCode').textContent = roomCode;
+    show('waiting');
+    listenGame();
+  }
+
+  function joinRoom() {
+    myName = document.getElementById('nameInput').value.trim() || 'Гравець 2';
+    roomCode = document.getElementById('roomInput').value.trim().toUpperCase();
+    if (!roomCode || roomCode.length !== 4) return alert('Введи код кімнати!');
+    myRole = 'O';
+    gameRef = db.ref('games/' + roomCode);
+    gameRef.get().then(snap => {
+      if (!snap.exists()) return alert('Кімната не знайдена!');
+      if (snap.val().status !== 'waiting') return alert('Гра вже почалась!');
+      gameRef.update({ 'players/O': myName, status: 'playing' });
+      show('game');
+      listenGame();
+    });
+  }
+
+  function copyCode() {
+    navigator.clipboard.writeText(roomCode).then(() => alert('Скопійовано: ' + roomCode));
+  }
+
+  function listenGame() {
+    gameRef.on('value', snap => {
+      if (!snap.exists()) return;
+      const data = snap.val();
+      if (data.status === 'playing' && document.getElementById('waiting').style.display !== 'none') show('game');
+      if (data.scores) {
+        document.getElementById('p1score').textContent = data.scores.X || 0;
+        document.getElementById('p2score').textContent = data.scores.O || 0;
+      }
+      if (data.players) {
+        document.getElementById('p1name').textContent = data.players.X || 'X';
+        document.getElementById('p2name').textContent = data.players.O || 'O';
+      }
+      renderBoard(data.board);
+      updateStatus(data);
+    });
+  }
+
+  function renderBoard(board) {
+    document.querySelectorAll('.cell').forEach((cell, i) => {
+      cell.textContent = board[i] || '';
+      cell.className = 'cell';
+      if (board[i]) cell.classList.add('taken', board[i].toLowerCase());
+    });
+  }
+
+  function updateStatus(data) {
+    const winner = checkWinner(data.board);
+    if (winner) {
+      const isMe = winner === myRole;
+      showOverlay(isMe ? '🏆' : '😔', isMe ? 'Ти виграв!' : (data.players[winner] + ' виграв!'), isMe ? 'Вітаємо!' : 'Краще щастить наступного разу');
+      return;
+    }
+    if (data.board.every(c => c !== '')) { showOverlay('🤝', 'Нічия!', 'Ніхто не переміг'); return; }
+    const isMyTurn = data.turn === myRole;
+    document.getElementById('statusBar').innerHTML = isMyTurn
+      ? `<strong style="color:var(--${myRole==='X'?'x':'o'}-color)">Твій хід ${myRole}</strong>`
+      : `<strong>Хід суперника...</strong>`;
+  }
+
+  function makeMove(i) {
+    gameRef.get().then(snap => {
+      const data = snap.val();
+      if (!data || data.status !== 'playing' || data.turn !== myRole || data.board[i]) return;
+      const newBoard = [...data.board];
+      newBoard[i] = myRole;
+      const winner = checkWinner(newBoard);
+      const newScores = { ...data.scores };
+      if (winner) newScores[winner] = (newScores[winner] || 0) + 1;
+      gameRef.update({ board: newBoard, turn: myRole === 'X' ? 'O' : 'X', scores: newScores });
+    });
+  }
+
+  function resetGame() {
+    document.getElementById('overlay').classList.remove('show');
+    if (gameRef) gameRef.update({ board: Array(9).fill(''), turn: 'X' });
+  }
+
+  function checkWinner(board) {
+    for (const [a,b,c] of WINS) {
+      if (board[a] && board[a] === board[b] && board[a] === board[c]) return board[a];
+    }
+    return null;
+  }
+
+  function showOverlay(emoji, title, text) {
+    document.getElementById('overlayEmoji').textContent = emoji;
+    document.getElementById('overlayTitle').textContent = title;
+    document.getElementById('overlayText').textContent = text;
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  function show(id) {
+    ['lobby','waiting','game'].forEach(s => document.getElementById(s).style.display = 'none');
+    document.getElementById(id).style.display = 'flex';
+  }
+</script>
+</body>
+</html>
