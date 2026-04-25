@@ -1,303 +1,1032 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="uk" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Хрестики-Нулики</title>
+<title>X vs O</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Syne+Mono&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@300;400&display=swap');
-  :root {
-    --x-color: #ff4d6d;
-    --o-color: #4cc9f0;
-    --bg: #0a0a0f;
-    --card: #12121a;
-    --border: #ffffff10;
-    --text: #f0f0f0;
-    --muted: #555;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif;
-    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
-    justify-content: center; padding: 20px;
-    background-image: radial-gradient(ellipse at 20% 50%, #ff4d6d08 0%, transparent 60%),
-                      radial-gradient(ellipse at 80% 50%, #4cc9f008 0%, transparent 60%);
-  }
-  h1 { font-family: 'Unbounded', sans-serif; font-size: clamp(1.2rem, 5vw, 1.8rem); font-weight: 900; letter-spacing: -1px; margin-bottom: 8px; text-align: center; }
-  h1 span:nth-child(1) { color: var(--x-color); }
-  h1 span:nth-child(3) { color: var(--o-color); }
-  .subtitle { color: var(--muted); font-size: 0.75rem; margin-bottom: 28px; text-align: center; }
-  .screen { width: 100%; max-width: 340px; }
-  #lobby { display: flex; flex-direction: column; gap: 12px; }
-  .input-group { display: flex; flex-direction: column; gap: 6px; }
-  label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
-  input { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 0.9rem; outline: none; }
-  .btn { padding: 14px; border-radius: 10px; border: none; font-family: 'Unbounded', sans-serif; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: transform 0.15s; letter-spacing: 0.5px; }
-  .btn:active { transform: scale(0.97); }
-  .btn-primary { background: var(--x-color); color: white; }
-  .btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); }
-  .divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 0.7rem; }
-  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-  #waiting { text-align: center; display: none; flex-direction: column; align-items: center; gap: 16px; }
-  .room-code { font-family: 'Unbounded', sans-serif; font-size: 2.5rem; font-weight: 900; letter-spacing: 8px; color: var(--o-color); }
-  .pulse { width: 12px; height: 12px; background: var(--x-color); border-radius: 50%; animation: pulse 1.5s infinite; }
-  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
-  #game { display: none; flex-direction: column; align-items: center; gap: 20px; }
-  .status-bar { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 20px; font-size: 0.8rem; text-align: center; width: 100%; }
-  .status-bar strong { font-family: 'Unbounded', sans-serif; font-size: 0.85rem; }
-  .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; }
-  .cell { aspect-ratio: 1; background: var(--card); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: 'Unbounded', sans-serif; font-size: clamp(1.8rem, 8vw, 2.5rem); font-weight: 900; cursor: pointer; transition: background 0.15s, transform 0.15s; user-select: none; }
-  .cell:hover:not(.taken) { background: #ffffff08; transform: scale(1.03); }
-  .cell.taken { cursor: default; }
-  .cell.x { color: var(--x-color); }
-  .cell.o { color: var(--o-color); }
-  .scores { display: flex; gap: 12px; width: 100%; }
-  .score-card { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px; text-align: center; }
-  .score-card .name { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .score-card .num { font-family: 'Unbounded', sans-serif; font-size: 1.5rem; font-weight: 900; }
-  .score-card.x .num { color: var(--x-color); }
-  .score-card.o .num { color: var(--o-color); }
-  .observer-badge { background: #ffffff10; border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 0.7rem; color: var(--muted); }
-  .overlay { position: fixed; inset: 0; background: #0a0a0fdd; display: none; align-items: center; justify-content: center; z-index: 100; }
-  .overlay.show { display: flex; }
-  .overlay-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 32px 24px; text-align: center; max-width: 280px; width: 90%; }
-  .overlay-card .emoji { font-size: 3rem; margin-bottom: 12px; }
-  .overlay-card h2 { font-family: 'Unbounded', sans-serif; font-size: 1.1rem; margin-bottom: 8px; }
-  .overlay-card p { color: var(--muted); font-size: 0.8rem; margin-bottom: 20px; }
+:root {
+  --x: #ff3a5c;
+  --o: #00d4ff;
+  --win: #ffd700;
+  --bg: #080810;
+  --bg2: #0e0e1a;
+  --card: #13131f;
+  --card2: #1a1a28;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #f0f0f8;
+  --muted: #55556a;
+  --muted2: #8888a0;
+  --shadow-x: rgba(255,58,92,0.3);
+  --shadow-o: rgba(0,212,255,0.3);
+  --grad-bg: radial-gradient(ellipse at 15% 40%, rgba(255,58,92,0.06) 0%, transparent 55%),
+             radial-gradient(ellipse at 85% 60%, rgba(0,212,255,0.06) 0%, transparent 55%),
+             radial-gradient(ellipse at 50% 100%, rgba(100,0,255,0.04) 0%, transparent 50%);
+}
+[data-theme="light"] {
+  --bg: #f0f0f8;
+  --bg2: #e4e4f0;
+  --card: #ffffff;
+  --card2: #f5f5ff;
+  --border: rgba(0,0,0,0.08);
+  --border2: rgba(0,0,0,0.14);
+  --text: #1a1a2e;
+  --muted: #9999b0;
+  --muted2: #7070a0;
+  --shadow-x: rgba(255,58,92,0.2);
+  --shadow-o: rgba(0,212,255,0.2);
+  --grad-bg: radial-gradient(ellipse at 15% 40%, rgba(255,58,92,0.04) 0%, transparent 55%),
+             radial-gradient(ellipse at 85% 60%, rgba(0,212,255,0.04) 0%, transparent 55%);
+}
+[data-theme="neon"] {
+  --x: #ff006e;
+  --o: #00ff88;
+  --bg: #000008;
+  --bg2: #050510;
+  --card: #080818;
+  --card2: #0d0d22;
+  --border: rgba(255,0,110,0.15);
+  --border2: rgba(0,255,136,0.15);
+  --text: #e0e0ff;
+  --muted: #333355;
+  --muted2: #6666aa;
+  --shadow-x: rgba(255,0,110,0.5);
+  --shadow-o: rgba(0,255,136,0.5);
+  --grad-bg: radial-gradient(ellipse at 20% 50%, rgba(255,0,110,0.08) 0%, transparent 50%),
+             radial-gradient(ellipse at 80% 50%, rgba(0,255,136,0.08) 0%, transparent 50%);
+}
+[data-theme="sunset"] {
+  --x: #ff6b35;
+  --o: #a855f7;
+  --bg: #0a0510;
+  --bg2: #120a1a;
+  --card: #1a1025;
+  --card2: #201530;
+  --border: rgba(255,107,53,0.12);
+  --border2: rgba(168,85,247,0.12);
+  --text: #f5e8ff;
+  --muted: #443355;
+  --muted2: #8866aa;
+  --shadow-x: rgba(255,107,53,0.35);
+  --shadow-o: rgba(168,85,247,0.35);
+  --grad-bg: radial-gradient(ellipse at 20% 30%, rgba(255,107,53,0.1) 0%, transparent 55%),
+             radial-gradient(ellipse at 80% 70%, rgba(168,85,247,0.1) 0%, transparent 55%),
+             radial-gradient(ellipse at 50% 50%, rgba(255,0,128,0.04) 0%, transparent 60%);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  background-image: var(--grad-bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  transition: background 0.4s, color 0.4s;
+  overflow-x: hidden;
+}
+
+/* ── NOISE OVERLAY ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  opacity: 0.4;
+  z-index: 0;
+}
+
+.wrap { position: relative; z-index: 1; width: 100%; max-width: 360px; display: flex; flex-direction: column; align-items: center; }
+
+/* ── HEADER ── */
+.logo {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: clamp(1.6rem, 7vw, 2.2rem);
+  letter-spacing: -2px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+  user-select: none;
+}
+.logo .lx { color: var(--x); text-shadow: 0 0 30px var(--shadow-x); }
+.logo .lo { color: var(--o); text-shadow: 0 0 30px var(--shadow-o); }
+.logo .vs {
+  font-size: 0.6em;
+  color: var(--muted2);
+  font-weight: 400;
+  letter-spacing: 2px;
+  padding: 3px 8px;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  font-family: 'Syne Mono', monospace;
+}
+.subtitle { color: var(--muted); font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 28px; }
+
+/* ── SCREENS ── */
+.screen { width: 100%; display: none; flex-direction: column; align-items: center; gap: 10px; }
+.screen.active { display: flex; animation: fadeUp 0.35s cubic-bezier(0.22,1,0.36,1); }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── CARDS ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  width: 100%;
+  transition: background 0.3s, border 0.3s;
+}
+
+/* ── INPUTS ── */
+.input-wrap { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
+input {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 13px 16px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border 0.2s, box-shadow 0.2s;
+  width: 100%;
+}
+input:focus { border-color: var(--border2); box-shadow: 0 0 0 3px rgba(255,255,255,0.04); }
+
+/* ── BUTTONS ── */
+.btn {
+  padding: 14px 20px;
+  border-radius: 12px;
+  border: none;
+  font-family: 'Syne', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s;
+  letter-spacing: 0.5px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.08), transparent);
+  pointer-events: none;
+}
+.btn:active { transform: scale(0.97); opacity: 0.9; }
+.btn-x {
+  background: linear-gradient(135deg, var(--x), color-mix(in srgb, var(--x) 70%, #ff8c00));
+  color: white;
+  box-shadow: 0 4px 20px var(--shadow-x);
+}
+.btn-x:hover { box-shadow: 0 6px 28px var(--shadow-x); }
+.btn-o {
+  background: linear-gradient(135deg, var(--o), color-mix(in srgb, var(--o) 60%, #0050ff));
+  color: #000;
+  box-shadow: 0 4px 20px var(--shadow-o);
+}
+.btn-ghost {
+  background: var(--card2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { border-color: var(--border2); }
+
+/* ── DIVIDER ── */
+.divider {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--muted); font-size: 0.65rem; letter-spacing: 1px;
+  width: 100%;
+}
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* ── WAITING ── */
+#waiting { text-align: center; }
+.room-badge {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+.room-label { font-size: 0.65rem; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+.room-code {
+  font-family: 'Syne Mono', monospace;
+  font-size: 3rem;
+  font-weight: 700;
+  letter-spacing: 10px;
+  color: var(--o);
+  text-shadow: 0 0 30px var(--shadow-o);
+  animation: glow 2s ease-in-out infinite alternate;
+}
+@keyframes glow {
+  from { text-shadow: 0 0 20px var(--shadow-o); }
+  to   { text-shadow: 0 0 40px var(--shadow-o), 0 0 60px var(--shadow-o); }
+}
+.waiting-dots { display: flex; gap: 6px; align-items: center; }
+.dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--x);
+  animation: bounce 1.2s infinite;
+}
+.dot:nth-child(2) { animation-delay: 0.2s; background: var(--muted); }
+.dot:nth-child(3) { animation-delay: 0.4s; background: var(--o); }
+@keyframes bounce { 0%,100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-5px); opacity: 1; } }
+
+/* ── GAME ── */
+#game { gap: 14px; }
+
+.scores-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 8px;
+  width: 100%;
+  align-items: center;
+}
+.score-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 10px;
+  text-align: center;
+  transition: border 0.3s, box-shadow 0.3s;
+}
+.score-card.active-turn { border-color: var(--border2); box-shadow: 0 0 20px rgba(255,255,255,0.06); }
+.score-card .sname { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.score-card .snum { font-family: 'Syne', sans-serif; font-size: 1.8rem; font-weight: 800; line-height: 1; }
+.score-card.x-card .snum { color: var(--x); text-shadow: 0 0 20px var(--shadow-x); }
+.score-card.o-card .snum { color: var(--o); text-shadow: 0 0 20px var(--shadow-o); }
+.vs-badge {
+  font-family: 'Syne Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--muted);
+  letter-spacing: 2px;
+  padding: 6px;
+}
+
+.wins-bar {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+}
+.win-dot {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  transition: all 0.3s;
+}
+.win-dot.x-won { background: var(--x); border-color: var(--x); color: white; box-shadow: 0 0 12px var(--shadow-x); }
+.win-dot.o-won { background: var(--o); border-color: var(--o); color: #000; box-shadow: 0 0 12px var(--shadow-o); }
+.win-dot.crown { font-size: 0.8rem; border: none; }
+
+.status-pill {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 50px;
+  padding: 10px 20px;
+  font-size: 0.8rem;
+  text-align: center;
+  width: 100%;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  transition: all 0.3s;
+  letter-spacing: 0.3px;
+}
+.status-pill.my-turn {
+  border-color: var(--x);
+  box-shadow: 0 0 20px var(--shadow-x);
+  color: var(--x);
+}
+.status-pill.their-turn { color: var(--muted2); }
+
+/* ── BOARD ── */
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+  padding: 4px;
+}
+.cell {
+  aspect-ratio: 1;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(1.8rem, 9vw, 2.6rem);
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  user-select: none;
+  position: relative;
+  overflow: hidden;
+}
+/* Remove hover highlight for empty cells - was the blue bug */
+.cell:not(.taken):not(.no-hover):hover {
+  background: var(--card2);
+  border-color: var(--border2);
+  transform: scale(1.04);
+}
+.cell.taken { cursor: default; }
+.cell.x-cell {
+  color: var(--x);
+  border-color: rgba(255,58,92,0.25);
+  box-shadow: inset 0 0 20px rgba(255,58,92,0.06);
+  animation: popIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+.cell.o-cell {
+  color: var(--o);
+  border-color: rgba(0,212,255,0.25);
+  box-shadow: inset 0 0 20px rgba(0,212,255,0.06);
+  animation: popIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+.cell.win-cell {
+  animation: winPulse 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+.cell.x-cell.win-cell { box-shadow: 0 0 30px var(--shadow-x), inset 0 0 30px rgba(255,58,92,0.15); border-color: var(--x); background: rgba(255,58,92,0.08); }
+.cell.o-cell.win-cell { box-shadow: 0 0 30px var(--shadow-o), inset 0 0 30px rgba(0,212,255,0.15); border-color: var(--o); background: rgba(0,212,255,0.08); }
+
+@keyframes popIn { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes winPulse { 0% { transform: scale(1); } 40% { transform: scale(1.12); } 100% { transform: scale(1.05); } }
+
+/* ── OBSERVER ── */
+.observer-tag {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 0.7rem;
+  color: var(--muted2);
+  display: none;
+  align-items: center;
+  gap: 6px;
+}
+.observer-count { font-family: 'Syne Mono', monospace; color: var(--o); }
+
+/* ── SETTINGS ── */
+#settingsBtn {
+  position: fixed;
+  top: 16px; right: 16px;
+  width: 40px; height: 40px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  z-index: 50;
+  transition: background 0.2s, border 0.2s;
+  font-size: 1.1rem;
+}
+#settingsBtn:hover { background: var(--card2); border-color: var(--border2); }
+
+.settings-panel {
+  position: fixed;
+  top: 66px; right: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  min-width: 220px;
+  z-index: 49;
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  animation: fadeDown 0.2s ease;
+}
+@keyframes fadeDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+.settings-panel.open { display: flex; }
+.settings-title { font-family: 'Syne', sans-serif; font-size: 0.75rem; font-weight: 700; color: var(--muted2); text-transform: uppercase; letter-spacing: 1.5px; }
+.theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.theme-btn {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card2);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.theme-btn:hover, .theme-btn.active { border-color: var(--border2); background: var(--bg2); }
+.theme-btn.active { color: var(--o); font-weight: 500; }
+
+.toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+}
+.toggle {
+  width: 38px; height: 22px;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.toggle.on { background: var(--o); border-color: var(--o); }
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+.toggle.on::after { transform: translateX(16px); }
+
+/* ── OVERLAY ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8,8,16,0.85);
+  backdrop-filter: blur(12px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.overlay.show { display: flex; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.overlay-card {
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 24px;
+  padding: 36px 28px;
+  text-align: center;
+  max-width: 300px;
+  width: 90%;
+  animation: scaleIn 0.35s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes scaleIn { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.overlay-emoji { font-size: 3.5rem; margin-bottom: 14px; display: block; animation: bounce2 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.1s both; }
+@keyframes bounce2 { from { transform: scale(0) rotate(-20deg); } to { transform: scale(1) rotate(0); } }
+.overlay-title { font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 800; margin-bottom: 6px; }
+.overlay-text { color: var(--muted2); font-size: 0.82rem; margin-bottom: 22px; line-height: 1.5; }
+.overlay-btns { display: flex; flex-direction: column; gap: 8px; }
+
+/* ── PARTICLES ── */
+.particle {
+  position: fixed;
+  pointer-events: none;
+  z-index: 200;
+  font-size: 1.2rem;
+  animation: particleFly 1s ease-out forwards;
+}
+@keyframes particleFly {
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-120px) scale(0.3); }
+}
+
+/* ── MATCH SERIES INDICATOR ── */
+.series-label { font-size: 0.65rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
 </style>
 </head>
 <body>
 
-<h1><span>X</span><span> vs </span><span>O</span></h1>
-<p class="subtitle">мультиплеєр · два гравці</p>
+<div id="settingsBtn" onclick="toggleSettings()">⚙️</div>
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-title">Налаштування</div>
 
-<div class="screen" id="lobby">
-  <div class="input-group">
-    <label>Твоє ім'я</label>
-    <input type="text" id="nameInput" placeholder="Введи нікнейм" maxlength="16">
+  <div>
+    <div class="settings-title" style="margin-bottom:8px">Тема</div>
+    <div class="theme-grid">
+      <div class="theme-btn active" onclick="setTheme('dark',this)">🌑 Темна</div>
+      <div class="theme-btn" onclick="setTheme('light',this)">☀️ Світла</div>
+      <div class="theme-btn" onclick="setTheme('neon',this)">⚡ Неон</div>
+      <div class="theme-btn" onclick="setTheme('sunset',this)">🌅 Захід</div>
+    </div>
   </div>
-  <button class="btn btn-primary" onclick="createRoom()">🎮 Створити кімнату</button>
-  <div class="divider">або</div>
-  <div class="input-group">
-    <label>Код кімнати</label>
-    <input type="text" id="roomInput" placeholder="XXXX" maxlength="4" style="text-transform:uppercase;letter-spacing:4px;font-family:'Unbounded',sans-serif;">
-  </div>
-  <button class="btn btn-secondary" onclick="joinRoom()">🚀 Приєднатись</button>
-</div>
 
-<div class="screen" id="waiting">
-  <p style="color:var(--muted);font-size:0.75rem;margin-bottom:8px;">КОД КІМНАТИ</p>
-  <div class="room-code" id="displayCode"></div>
-  <p style="color:var(--muted);font-size:0.8rem;">Відправ цей код другу</p>
-  <div style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:0.8rem;">
-    <div class="pulse"></div>
-    Чекаємо на гравця...
+  <div class="toggle-row">
+    <span>🔊 Звуки</span>
+    <div class="toggle on" id="soundToggle" onclick="toggleSound()"></div>
+  </div>
+  <div class="toggle-row">
+    <span>✨ Анімації</span>
+    <div class="toggle on" id="animToggle" onclick="toggleAnim()"></div>
   </div>
 </div>
 
-<div class="screen" id="game">
-  <div class="scores">
-    <div class="score-card x">
-      <div class="name" id="p1name">X</div>
-      <div class="num" id="p1score">0</div>
-    </div>
-    <div class="score-card" style="display:flex;align-items:center;justify-content:center;">
-      <span style="color:var(--muted);font-size:0.7rem;font-family:'Unbounded',sans-serif;">VS</span>
-    </div>
-    <div class="score-card o">
-      <div class="name" id="p2name">O</div>
-      <div class="num" id="p2score">0</div>
-    </div>
+<div class="wrap">
+  <div class="logo">
+    <span class="lx">X</span>
+    <span class="vs">vs</span>
+    <span class="lo">O</span>
   </div>
-  <div id="observerBadge" class="observer-badge" style="display:none">👀 Ти спостерігач</div>
-  <div class="status-bar" id="statusBar"><strong>Завантаження...</strong></div>
-  <div class="board">
-    <div class="cell" onclick="makeMove(0)"></div>
-    <div class="cell" onclick="makeMove(1)"></div>
-    <div class="cell" onclick="makeMove(2)"></div>
-    <div class="cell" onclick="makeMove(3)"></div>
-    <div class="cell" onclick="makeMove(4)"></div>
-    <div class="cell" onclick="makeMove(5)"></div>
-    <div class="cell" onclick="makeMove(6)"></div>
-    <div class="cell" onclick="makeMove(7)"></div>
-    <div class="cell" onclick="makeMove(8)"></div>
+  <div class="subtitle">мультиплеєр · два гравці</div>
+
+  <!-- LOBBY -->
+  <div class="screen active" id="lobby">
+    <div class="input-wrap">
+      <label>Твоє ім'я</label>
+      <input type="text" id="nameInput" placeholder="Введи нікнейм" maxlength="16" autocomplete="off">
+    </div>
+    <button class="btn btn-x" onclick="createRoom()">🎮 Створити кімнату</button>
+    <div class="divider">або</div>
+    <div class="input-wrap">
+      <label>Код кімнати</label>
+      <input type="text" id="roomInput" placeholder="XXXX" maxlength="4"
+        style="text-transform:uppercase;letter-spacing:6px;font-family:'Syne Mono',monospace;font-size:1.1rem;text-align:center;" autocomplete="off">
+    </div>
+    <button class="btn btn-ghost" onclick="joinRoom()">🚀 Приєднатись</button>
+  </div>
+
+  <!-- WAITING -->
+  <div class="screen" id="waiting">
+    <div class="room-badge">
+      <div class="room-label">Код кімнати</div>
+      <div class="room-code" id="displayCode">----</div>
+      <div style="font-size:0.78rem;color:var(--muted2)">Відправ цей код другу</div>
+      <div class="waiting-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <div style="font-size:0.75rem;color:var(--muted)">Чекаємо на суперника...</div>
+    </div>
+    <button class="btn btn-ghost" onclick="show('lobby')">← Назад</button>
+  </div>
+
+  <!-- GAME -->
+  <div class="screen" id="game">
+    <div class="scores-row">
+      <div class="score-card x-card" id="p1card">
+        <div class="sname" id="p1name">—</div>
+        <div class="snum" id="p1score">0</div>
+      </div>
+      <div class="vs-badge">VS</div>
+      <div class="score-card o-card" id="p2card">
+        <div class="sname" id="p2name">—</div>
+        <div class="snum" id="p2score">0</div>
+      </div>
+    </div>
+
+    <!-- Best-of-5 wins tracker -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:100%">
+      <div class="series-label">Серія до 3 перемог</div>
+      <div class="wins-bar" id="winsBar">
+        <div class="win-dot" id="wd0"></div>
+        <div class="win-dot" id="wd1"></div>
+        <div class="win-dot crown">🏆</div>
+        <div class="win-dot" id="wd3"></div>
+        <div class="win-dot" id="wd4"></div>
+      </div>
+    </div>
+
+    <div class="observer-tag" id="observerTag">
+      👀 Спостерігач · <span class="observer-count" id="observerCount">1</span>
+    </div>
+
+    <div class="status-pill" id="statusBar">Завантаження...</div>
+
+    <div class="board" id="board">
+      <div class="cell" onclick="makeMove(0)"></div>
+      <div class="cell" onclick="makeMove(1)"></div>
+      <div class="cell" onclick="makeMove(2)"></div>
+      <div class="cell" onclick="makeMove(3)"></div>
+      <div class="cell" onclick="makeMove(4)"></div>
+      <div class="cell" onclick="makeMove(5)"></div>
+      <div class="cell" onclick="makeMove(6)"></div>
+      <div class="cell" onclick="makeMove(7)"></div>
+      <div class="cell" onclick="makeMove(8)"></div>
+    </div>
   </div>
 </div>
 
+<!-- OVERLAY -->
 <div class="overlay" id="overlay">
   <div class="overlay-card">
-    <div class="emoji" id="overlayEmoji">🎉</div>
-    <h2 id="overlayTitle">Перемога!</h2>
-    <p id="overlayText">Ти виграв!</p>
-    <button class="btn btn-primary" style="width:100%" id="replayBtn" onclick="resetGame()">Ще раз</button>
+    <span class="overlay-emoji" id="overlayEmoji">🎉</span>
+    <div class="overlay-title" id="overlayTitle">Перемога!</div>
+    <div class="overlay-text" id="overlayText">Ти виграв!</div>
+    <div class="overlay-btns">
+      <button class="btn btn-x" id="replayBtn" onclick="resetGame()">🔄 Ще раз</button>
+      <button class="btn btn-ghost" id="leaveBtn" onclick="show('lobby')" style="display:none">← Вийти</button>
+    </div>
   </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
 <script>
-  firebase.initializeApp({
-    databaseURL: "https://tg-game-dd166-default-rtdb.europe-west1.firebasedatabase.app"
+// ── FIREBASE ──
+firebase.initializeApp({
+  databaseURL: "https://tg-game-dd166-default-rtdb.europe-west1.firebasedatabase.app"
+});
+const db = firebase.database();
+const WINS = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+let myRole = null, roomCode = null, myName = '', gameRef = null;
+let isObserver = false;
+let soundOn = true, animOn = true;
+let localScores = { X: 0, O: 0 };
+
+// ── SOUND ENGINE ──
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let actx;
+function getACtx() { if (!actx) actx = new AudioCtx(); return actx; }
+
+function playMove(role) {
+  if (!soundOn) return;
+  const ctx = getACtx();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.connect(g); g.connect(ctx.destination);
+  o.frequency.value = role === 'X' ? 440 : 523;
+  o.type = 'sine';
+  g.gain.setValueAtTime(0.15, ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+  o.start(); o.stop(ctx.currentTime + 0.18);
+}
+
+function playWin() {
+  if (!soundOn) return;
+  const ctx = getACtx();
+  const notes = [523, 659, 784, 1047];
+  notes.forEach((freq, i) => {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = freq;
+    o.type = 'triangle';
+    const t = ctx.currentTime + i * 0.12;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.15, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    o.start(t); o.stop(t + 0.3);
   });
-  const db = firebase.database();
-  const WINS = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+}
 
-  let myRole = null, roomCode = null, myName = '', gameRef = null;
-  let isObserver = false;
+function playDraw() {
+  if (!soundOn) return;
+  const ctx = getACtx();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.connect(g); g.connect(ctx.destination);
+  o.frequency.value = 300;
+  o.type = 'sawtooth';
+  g.gain.setValueAtTime(0.1, ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+  o.start(); o.stop(ctx.currentTime + 0.4);
+}
 
-  // Читаємо параметри з URL (якщо прийшли від бота)
-  const params = new URLSearchParams(window.location.search);
-  const urlRoom = params.get('room');
-  const urlId = params.get('id');
+function playClick() {
+  if (!soundOn) return;
+  const ctx = getACtx();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.connect(g); g.connect(ctx.destination);
+  o.frequency.value = 800;
+  o.type = 'square';
+  g.gain.setValueAtTime(0.05, ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+  o.start(); o.stop(ctx.currentTime + 0.06);
+}
 
-  if (urlRoom) {
-    // Прийшли від бота — автоматично входимо
-    roomCode = urlRoom;
-    gameRef = db.ref('games/' + roomCode);
-
-    gameRef.get().then(snap => {
-      if (!snap.exists()) return;
-      const data = snap.val();
-
-      if (urlId) {
-        // Визначаємо роль по TG ID
-        const uid = parseInt(urlId);
-        if (data.players.X && data.players.X.id === uid) {
-          myRole = 'X';
-          myName = data.players.X.name;
-        } else if (data.players.O && data.players.O.id === uid) {
-          myRole = 'O';
-          myName = data.players.O.name;
-        } else {
-          isObserver = true;
-        }
-      } else {
-        isObserver = true;
-      }
-
-      if (isObserver) {
-        document.getElementById('observerBadge').style.display = 'block';
-        document.getElementById('replayBtn').style.display = 'none';
-      }
-
-      show('game');
-      listenGame();
-    });
+// ── PARTICLES ──
+function spawnParticles(x, y) {
+  if (!animOn) return;
+  const emojis = ['✨','⭐','🎊','💥','🔥','💫'];
+  for (let i = 0; i < 10; i++) {
+    const el = document.createElement('div');
+    el.className = 'particle';
+    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    el.style.left = (x + (Math.random()-0.5)*80) + 'px';
+    el.style.top = (y + (Math.random()-0.5)*40) + 'px';
+    el.style.animationDuration = (0.6 + Math.random()*0.6) + 's';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1200);
   }
+}
 
-  function createRoom() {
-    myName = document.getElementById('nameInput').value.trim() || 'Гравець 1';
-    roomCode = Math.random().toString(36).substring(2,6).toUpperCase();
-    myRole = 'X';
-    gameRef = db.ref('games/' + roomCode);
-    gameRef.set({ board: Array(9).fill(''), turn: 'X', players: { X: {name: myName, id: 0}, O: {name: '', id: 0} }, status: 'waiting', scores: { X: 0, O: 0 } });
-    document.getElementById('displayCode').textContent = roomCode;
-    show('waiting');
-    listenGame();
-  }
+// ── SETTINGS ──
+function toggleSettings() {
+  document.getElementById('settingsPanel').classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#settingsPanel') && !e.target.closest('#settingsBtn'))
+    document.getElementById('settingsPanel').classList.remove('open');
+});
+function setTheme(t, btn) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  playClick();
+}
+function toggleSound() {
+  soundOn = !soundOn;
+  document.getElementById('soundToggle').classList.toggle('on', soundOn);
+  if (soundOn) playClick();
+}
+function toggleAnim() {
+  animOn = !animOn;
+  document.getElementById('animToggle').classList.toggle('on', animOn);
+  playClick();
+}
 
-  function joinRoom() {
-    myName = document.getElementById('nameInput').value.trim() || 'Гравець 2';
-    roomCode = document.getElementById('roomInput').value.trim().toUpperCase();
-    if (!roomCode || roomCode.length !== 4) return alert('Введи код кімнати!');
-    myRole = 'O';
-    gameRef = db.ref('games/' + roomCode);
-    gameRef.get().then(snap => {
-      if (!snap.exists()) return alert('Кімната не знайдена!');
-      gameRef.update({ 'players/O': {name: myName, id: 0}, status: 'playing' });
-      show('game');
-      listenGame();
-    });
-  }
+// ── URL PARAMS (TG bot) ──
+const params = new URLSearchParams(window.location.search);
+const urlRoom = params.get('room');
+const urlId = params.get('id');
 
-  function listenGame() {
-    gameRef.on('value', snap => {
-      if (!snap.exists()) return;
-      const data = snap.val();
-      if (data.status === 'playing' && document.getElementById('waiting').style.display !== 'none') show('game');
-      if (data.scores) {
-        document.getElementById('p1score').textContent = data.scores.X || 0;
-        document.getElementById('p2score').textContent = data.scores.O || 0;
-      }
-      if (data.players) {
-        const xName = data.players.X ? (data.players.X.name || data.players.X) : 'X';
-        const oName = data.players.O ? (data.players.O.name || data.players.O) : 'O';
-        document.getElementById('p1name').textContent = xName;
-        document.getElementById('p2name').textContent = oName;
-      }
-      renderBoard(data.board);
-      updateStatus(data);
-    });
-  }
+if (urlRoom) {
+  roomCode = urlRoom;
+  gameRef = db.ref('games/' + roomCode);
 
-  function renderBoard(board) {
-    document.querySelectorAll('.cell').forEach((cell, i) => {
-      cell.textContent = board[i] || '';
-      cell.className = 'cell';
-      if (board[i]) cell.classList.add('taken', board[i].toLowerCase());
-    });
-  }
+  gameRef.get().then(snap => {
+    if (!snap.exists()) return;
+    const data = snap.val();
 
-  function updateStatus(data) {
-    const winner = checkWinner(data.board);
-    if (winner) {
-      const winnerData = data.players[winner];
-      const winnerName = winnerData ? (winnerData.name || winnerData) : winner;
-      const isMe = winner === myRole && !isObserver;
-      showOverlay(isMe ? '🏆' : '🎉', isMe ? 'Ти виграв!' : winnerName + ' переміг!', isMe ? 'Вітаємо!' : '');
-      return;
+    const uid = urlId ? parseInt(urlId) : null;
+    const px = data.players?.X;
+    const po = data.players?.O;
+
+    if (uid && px && px.id === uid) {
+      myRole = 'X'; myName = px.name;
+    } else if (uid && po && po.id === uid) {
+      myRole = 'O'; myName = po.name;
+    } else {
+      isObserver = true;
+      // increment observer count
+      gameRef.child('observers').transaction(v => (v || 0) + 1);
     }
-    if (data.board.every(c => c !== '')) { showOverlay('🤝', 'Нічия!', 'Ніхто не переміг'); return; }
 
     if (isObserver) {
-      const turnData = data.players[data.turn];
-      const turnName = turnData ? (turnData.name || turnData) : data.turn;
-      document.getElementById('statusBar').innerHTML = `<strong>Хід: ${turnName} (${data.turn})</strong>`;
+      document.getElementById('observerTag').style.display = 'flex';
+      document.getElementById('replayBtn').style.display = 'none';
+      document.getElementById('leaveBtn').style.display = 'block';
+    }
+    show('game');
+    listenGame();
+  });
+}
+
+// ── LOBBY ──
+function createRoom() {
+  playClick();
+  myName = document.getElementById('nameInput').value.trim() || 'Гравець 1';
+  roomCode = Math.random().toString(36).substring(2,6).toUpperCase();
+  myRole = 'X';
+  gameRef = db.ref('games/' + roomCode);
+  gameRef.set({
+    board: Array(9).fill(''), turn: 'X',
+    players: { X: {name: myName, id: 0}, O: {name: '', id: 0} },
+    status: 'waiting', scores: {X:0, O:0}, observers: 0
+  });
+  document.getElementById('displayCode').textContent = roomCode;
+  show('waiting');
+  listenGame();
+}
+
+function joinRoom() {
+  playClick();
+  myName = document.getElementById('nameInput').value.trim() || 'Гравець 2';
+  roomCode = document.getElementById('roomInput').value.trim().toUpperCase();
+  if (!roomCode || roomCode.length !== 4) return alert('Введи код кімнати!');
+
+  gameRef = db.ref('games/' + roomCode);
+  gameRef.get().then(snap => {
+    if (!snap.exists()) return alert('Кімната не знайдена!');
+    const data = snap.val();
+
+    // Check if both player slots taken → join as observer
+    const xFilled = data.players?.X?.name;
+    const oFilled = data.players?.O?.name;
+
+    if (xFilled && oFilled) {
+      isObserver = true;
+      myRole = null;
+      gameRef.child('observers').transaction(v => (v || 0) + 1);
+      document.getElementById('observerTag').style.display = 'flex';
+      document.getElementById('replayBtn').style.display = 'none';
+      document.getElementById('leaveBtn').style.display = 'block';
+      show('game');
+      listenGame();
+      return;
+    }
+
+    myRole = 'O';
+    gameRef.update({ 'players/O': {name: myName, id: 0}, status: 'playing' });
+    show('game');
+    listenGame();
+  });
+}
+
+// ── GAME LISTENER ──
+function listenGame() {
+  gameRef.on('value', snap => {
+    if (!snap.exists()) return;
+    const data = snap.val();
+
+    if (data.status === 'playing' && document.getElementById('waiting').classList.contains('active'))
+      show('game');
+
+    // Scores
+    if (data.scores) {
+      document.getElementById('p1score').textContent = data.scores.X || 0;
+      document.getElementById('p2score').textContent = data.scores.O || 0;
+      localScores = data.scores;
+      updateWinsBar(data.scores);
+    }
+
+    // Names
+    if (data.players) {
+      const xN = data.players.X?.name || 'X';
+      const oN = data.players.O?.name || 'O';
+      document.getElementById('p1name').textContent = xN;
+      document.getElementById('p2name').textContent = oN;
+    }
+
+    // Observer count
+    if (data.observers > 0) {
+      document.getElementById('observerCount').textContent = data.observers;
+    }
+
+    renderBoard(data.board, data);
+    updateStatus(data);
+  });
+}
+
+// ── WINS BAR ──
+function updateWinsBar(scores) {
+  const x = scores.X || 0;
+  const o = scores.O || 0;
+  // dots: 0,1 = X wins, 2 = crown, 3,4 = O wins
+  for (let i = 0; i < 2; i++) {
+    const d = document.getElementById('wd'+i);
+    d.className = 'win-dot' + (i < x ? ' x-won' : '');
+    d.textContent = i < x ? '✕' : '';
+  }
+  for (let i = 0; i < 2; i++) {
+    const d = document.getElementById('wd'+(i+3));
+    d.className = 'win-dot' + (i < o ? ' o-won' : '');
+    d.textContent = i < o ? '○' : '';
+  }
+}
+
+// ── RENDER BOARD ──
+function renderBoard(board, data) {
+  const winner = checkWinner(board);
+  const winCombo = winner ? getWinCombo(board) : null;
+  const cells = document.querySelectorAll('.cell');
+
+  cells.forEach((cell, i) => {
+    cell.textContent = board[i] || '';
+    cell.className = 'cell';
+    if (board[i]) {
+      cell.classList.add('taken', board[i] === 'X' ? 'x-cell' : 'o-cell');
+    }
+    if (winCombo && winCombo.includes(i)) {
+      cell.classList.add('win-cell');
+    }
+    // Disable hover for taken or not your turn
+    if (board[i] || (data && data.turn !== myRole) || isObserver) {
+      cell.classList.add('no-hover');
+    }
+  });
+}
+
+// ── STATUS ──
+function updateStatus(data) {
+  const winner = checkWinner(data.board);
+  if (winner) {
+    const wName = data.players[winner]?.name || winner;
+    const isMe = winner === myRole && !isObserver;
+    const scores = data.scores || {};
+
+    if (isMe) {
+      playWin();
+      spawnParticles(window.innerWidth/2, window.innerHeight/2);
+    }
+
+    // Check if series over (3 wins)
+    const winCount = scores[winner] || 0;
+    if (winCount >= 3) {
+      showOverlay(isMe ? '🏆' : '🎊', isMe ? 'Ти виграв серію!' : wName + ' виграв серію!',
+        isMe ? 'Вітаємо з перемогою в серії!' : 'Краще пощастить наступного разу', true);
     } else {
-      const isMyTurn = data.turn === myRole;
-      document.getElementById('statusBar').innerHTML = isMyTurn
-        ? `<strong style="color:var(--${myRole==='X'?'x':'o'}-color)">Твій хід ${myRole}</strong>`
-        : `<strong>Хід суперника...</strong>`;
+      showOverlay(isMe ? '🥳' : '🎉', isMe ? 'Раунд за тобою!' : wName + ' переміг раунд!',
+        `Рахунок: ${scores.X||0} — ${scores.O||0}`, false);
     }
+    return;
+  }
+  if (data.board.every(c => c !== '')) {
+    playDraw();
+    showOverlay('🤝', 'Нічия!', 'Нікому не пощастило', false);
+    return;
   }
 
-  function makeMove(i) {
-    if (isObserver) return;
-    gameRef.get().then(snap => {
-      const data = snap.val();
-      if (!data || data.status !== 'playing' || data.turn !== myRole || data.board[i]) return;
-      const newBoard = [...data.board];
-      newBoard[i] = myRole;
-      const winner = checkWinner(newBoard);
-      const newScores = { ...data.scores };
-      if (winner) newScores[winner] = (newScores[winner] || 0) + 1;
-      gameRef.update({ board: newBoard, turn: myRole === 'X' ? 'O' : 'X', scores: newScores });
-    });
-  }
+  document.getElementById('overlay').classList.remove('show');
 
-  function resetGame() {
-    document.getElementById('overlay').classList.remove('show');
-    if (gameRef && !isObserver) gameRef.update({ board: Array(9).fill(''), turn: 'X' });
-  }
-
-  function checkWinner(board) {
-    for (const [a,b,c] of WINS) {
-      if (board[a] && board[a] === board[b] && board[a] === board[c]) return board[a];
+  const statusBar = document.getElementById('statusBar');
+  if (isObserver) {
+    const tName = data.players[data.turn]?.name || data.turn;
+    statusBar.textContent = `Хід: ${tName} (${data.turn})`;
+    statusBar.className = 'status-pill their-turn';
+  } else {
+    const isMyTurn = data.turn === myRole;
+    if (isMyTurn) {
+      statusBar.textContent = `Твій хід ${myRole === 'X' ? '❌' : '⭕'}`;
+      statusBar.className = 'status-pill my-turn';
+    } else {
+      statusBar.textContent = 'Хід суперника...';
+      statusBar.className = 'status-pill their-turn';
     }
-    return null;
+    document.getElementById('p1card').classList.toggle('active-turn', data.turn === 'X');
+    document.getElementById('p2card').classList.toggle('active-turn', data.turn === 'O');
   }
+}
 
-  function showOverlay(emoji, title, text) {
-    document.getElementById('overlayEmoji').textContent = emoji;
-    document.getElementById('overlayTitle').textContent = title;
-    document.getElementById('overlayText').textContent = text;
-    document.getElementById('overlay').classList.add('show');
-  }
+// ── MOVE ──
+function makeMove(i) {
+  if (isObserver) return;
+  gameRef.get().then(snap => {
+    const data = snap.val();
+    if (!data || data.status !== 'playing' || data.turn !== myRole || data.board[i]) return;
+    const newBoard = [...data.board];
+    newBoard[i] = myRole;
+    const winner = checkWinner(newBoard);
+    const newScores = { ...(data.scores || {X:0,O:0}) };
+    if (winner) newScores[winner] = (newScores[winner] || 0) + 1;
+    playMove(myRole);
 
-  function show(id) {
-    ['lobby','waiting','game'].forEach(s => document.getElementById(s).style.display = 'none');
-    document.getElementById(id).style.display = 'flex';
+    // Particle on cell
+    if (animOn) {
+      const cells = document.querySelectorAll('.cell');
+      const rect = cells[i].getBoundingClientRect();
+      spawnParticles(rect.left + rect.width/2, rect.top + rect.height/2);
+    }
+
+    gameRef.update({ board: newBoard, turn: myRole === 'X' ? 'O' : 'X', scores: newScores });
+  });
+}
+
+// ── RESET ──
+function resetGame() {
+  playClick();
+  document.getElementById('overlay').classList.remove('show');
+  if (gameRef && !isObserver) {
+    gameRef.update({ board: Array(9).fill(''), turn: 'X', status: 'playing' });
   }
+}
+
+// ── HELPERS ──
+function checkWinner(board) {
+  for (const [a,b,c] of WINS)
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) return board[a];
+  return null;
+}
+function getWinCombo(board) {
+  for (const combo of WINS) {
+    const [a,b,c] = combo;
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) return combo;
+  }
+  return null;
+}
+
+function showOverlay(emoji, title, text, isFinal) {
+  document.getElementById('overlayEmoji').textContent = emoji;
+  document.getElementById('overlayTitle').textContent = title;
+  document.getElementById('overlayText').textContent = text;
+  document.getElementById('replayBtn').style.display = isObserver ? 'none' : (isFinal ? 'none' : 'block');
+  document.getElementById('leaveBtn').style.display = isFinal || isObserver ? 'block' : 'none';
+  document.getElementById('overlay').classList.add('show');
+}
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
 </script>
 </body>
 </html>
