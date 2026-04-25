@@ -906,20 +906,48 @@ function confirmReady() {
   });
 }
 
+// ── CACHED STATE (для оптимізації) ──
+let cachedMyShots = [];
+let cachedEnemyShots = [];
+let cachedTurn = null;
+let cachedMyAlive = -1;
+let cachedEnemyAlive = -1;
+let enemyGridCells = null;
+let myGridCells = null;
+let gameStarted = false;
+let winShown = false;
+
 // ── GAME LISTENER ──
 function listenGame() {
+  // Слухаємо тільки turn — щоб реагувати на зміну ходу
+  gameRef.child('turn').on('value', snap => {
+    if (!gameStarted) return;
+    cachedTurn = snap.val();
+    updateStatusOnly();
+  });
+
+  // Слухаємо тільки постріли — головне що змінюється під час гри
+  gameRef.child('shots').on('value', snap => {
+    if (!gameStarted) return;
+    const shots = snap.val() || { A: [], B: [] };
+    const myShots = shots[myRole] || [];
+    const enemyShots = shots[myRole === 'A' ? 'B' : 'A'] || [];
+    updateShotsOnly(myShots, enemyShots);
+  });
+
+  // Слухаємо весь стан для навігації між екранами
   gameRef.on('value', snap => {
     if (!snap.exists()) return;
     const data = snap.val();
 
-    // player A sees waiting screen → go to placement when B joins
+    // A чекає → B приєднався → йдемо на розстановку
     if (myRole === 'A' && data.players?.B?.name && document.getElementById('waiting').classList.contains('active')) {
       gameRef.update({ 'players/A/ready': false, status: 'placing' });
       initPlacement();
       show('placement');
     }
 
-    // update ready badges in placement
+    // Оновлення бейджів готовності
     if (document.getElementById('placement').classList.contains('active')) {
       const pa = data.players?.A, pb = data.players?.B;
       document.getElementById('p1readyName').textContent = pa?.name || 'Гравець 1';
@@ -928,109 +956,177 @@ function listenGame() {
       document.getElementById('p2ready').classList.toggle('ready', !!pb?.ready);
     }
 
-    // both ready → start game
+    // Обидва готові → старт гри
     if (data.players?.A?.ready && data.players?.B?.ready && data.ships?.A?.length && data.ships?.B?.length) {
       if (!document.getElementById('game').classList.contains('active')) {
+        gameStarted = true;
+        winShown = false;
         show('game');
         initGameGrids(data);
       }
-    }
-
-    // update game screen
-    if (document.getElementById('game').classList.contains('active')) {
-      updateGameScreen(data);
     }
   });
 }
 
 // ── GAME GRIDS ──
 function initGameGrids(data) {
+  const pa = data.players?.A, pb = data.players?.B;
+  document.getElementById('p1name').textContent = pa?.name || 'A';
+  document.getElementById('p2name').textContent = pb?.name || 'B';
+
   buildEnemyGrid();
   buildMyGrid(data);
-  updateGameScreen(data);
+
+  // Ініціалізуємо кеш
+  const myShots = data.shots?.[myRole] || [];
+  const enemyShots = data.shots?.[myRole === 'A' ? 'B' : 'A'] || [];
+  cachedMyShots = [];
+  cachedEnemyShots = [];
+  cachedTurn = data.turn;
+
+  // Малюємо початковий стан
+  updateShotsOnly(myShots, enemyShots);
+  updateStatusOnly();
 }
 
 function buildEnemyGrid() {
   const grid = document.getElementById('enemyGrid');
   grid.innerHTML = '';
+  const frag = document.createDocumentFragment();
   for (let i = 0; i < 100; i++) {
     const cell = document.createElement('div');
     cell.className = 'cell';
-    cell.dataset.idx = i;
     cell.addEventListener('click', () => fireAt(i));
-    grid.appendChild(cell);
+    frag.appendChild(cell);
   }
+  grid.appendChild(frag);
+  enemyGridCells = grid.children;
 }
 
 function buildMyGrid(data) {
   const grid = document.getElementById('myGrid');
   grid.innerHTML = '';
+  const frag = document.createDocumentFragment();
   for (let i = 0; i < 100; i++) {
     const cell = document.createElement('div');
     cell.className = 'cell';
-    cell.dataset.idx = i;
-    grid.appendChild(cell);
+    frag.appendChild(cell);
   }
-  // show my ships
+  grid.appendChild(frag);
+  myGridCells = grid.children;
+
+  // Малюємо свої кораблі один раз
   const myShips = data.ships?.[myRole] || [];
   myShips.forEach(ship => {
     ship.cells.forEach(idx => {
-      const cell = grid.children[idx];
-      if (cell) cell.classList.add('ship-placed');
+      if (myGridCells[idx]) myGridCells[idx].classList.add('ship-placed');
     });
   });
 }
 
-function updateGameScreen(data) {
-  const pa = data.players?.A, pb = data.players?.B;
-  document.getElementById('p1name').textContent = pa?.name || 'A';
-  document.getElementById('p2name').textContent = pb?.name || 'B';
+// Оновлюємо ТІЛЬКИ нові постріли (не всі 200 клітинок!)
+function updateShotsOnly(myShots, enemyShots) {
+  gameRef.get().then(snap => {
+    if (!snap.exists()) return;
+    const data = snap.val();
+    const enemyRole = myRole === 'A' ? 'B' : 'A';
+    const enemyShips = data.ships?.[enemyRole] || [];
+    const myShipData = data.ships?.[myRole] || [];
 
-  const shotsA = data.shots?.A || [];
-  const shotsB = data.shots?.B || [];
-  const shipsA = data.ships?.A || [];
-  const shipsB = data.ships?.B || [];
+    // Будуємо мапи кораблів один раз
+    const enemyCellMap = new Map(); // cellIdx → ship
+    enemyShips.forEach(s => s.cells.forEach(c => enemyCellMap.set(c, s)));
+    const myCellMap = new Map();
+    myShipData.forEach(s => s.cells.forEach(c => myCellMap.set(c, s)));
 
-  // render enemy grid (shots I fired = shots[myRole])
-  const myShots = myRole === 'A' ? shotsA : shotsB;
-  const enemyShips = myRole === 'A' ? shipsB : shipsA;
-  renderEnemyGrid(myShots, enemyShips);
+    const myShotsSet = new Set(myShots);
+    const enemyShotsSet = new Set(enemyShots);
 
-  // render my grid (shots enemy fired = shots[enemy])
-  const enemyShots = myRole === 'A' ? shotsB : shotsA;
-  const myShipData = myRole === 'A' ? shipsA : shipsB;
-  renderMyGrid(enemyShots, myShipData, data);
+    // Оновлюємо тільки НОВІ постріли на полі суперника
+    const newMyShots = myShots.filter(s => !cachedMyShots.includes(s));
+    newMyShots.forEach(idx => {
+      const cell = enemyGridCells?.[idx];
+      if (!cell) return;
+      const ship = enemyCellMap.get(idx);
+      if (ship) {
+        const sunk = ship.cells.every(c => myShotsSet.has(c));
+        if (sunk) {
+          // Позначаємо всі клітинки потопленого
+          ship.cells.forEach(c => {
+            if (enemyGridCells[c]) enemyGridCells[c].className = 'cell sunk';
+          });
+        } else {
+          cell.className = 'cell hit';
+        }
+      } else {
+        cell.className = 'cell miss';
+      }
+    });
 
-  // counts
-  const myShipsAlive = countAlive(myShipData, enemyShots);
-  const enemyShipsAlive = countAlive(enemyShips, myShots);
+    // Оновлюємо тільки НОВІ постріли на моєму полі
+    const newEnemyShots = enemyShots.filter(s => !cachedEnemyShots.includes(s));
+    newEnemyShots.forEach(idx => {
+      const cell = myGridCells?.[idx];
+      if (!cell) return;
+      const ship = myCellMap.get(idx);
+      if (ship) {
+        const sunk = ship.cells.every(c => enemyShotsSet.has(c));
+        if (sunk) {
+          ship.cells.forEach(c => {
+            if (myGridCells[c]) myGridCells[c].className = 'cell sunk';
+          });
+        } else {
+          cell.className = 'cell hit';
+        }
+      } else {
+        cell.className = 'cell miss';
+      }
+    });
 
-  document.getElementById('p1ships').textContent = myRole === 'A' ? myShipsAlive : enemyShipsAlive;
-  document.getElementById('p2ships').textContent = myRole === 'A' ? enemyShipsAlive : myShipsAlive;
-  document.getElementById('hitCount').textContent = countHits(myShots, enemyShips) + ' влучань';
-  document.getElementById('myHits').textContent = countHits(enemyShots, myShipData) + ' попадань по мені';
+    cachedMyShots = myShots;
+    cachedEnemyShots = enemyShots;
 
-  // status
-  const myTurn = data.turn === myRole;
+    // Рахунки
+    const myShipsAlive = myShipData.filter(s => !s.cells.every(c => enemyShotsSet.has(c))).length;
+    const enemyShipsAlive = enemyShips.filter(s => !s.cells.every(c => myShotsSet.has(c))).length;
+
+    if (cachedMyAlive !== myShipsAlive || cachedEnemyAlive !== enemyShipsAlive) {
+      cachedMyAlive = myShipsAlive;
+      cachedEnemyAlive = enemyShipsAlive;
+      document.getElementById('p1ships').textContent = myRole === 'A' ? myShipsAlive : enemyShipsAlive;
+      document.getElementById('p2ships').textContent = myRole === 'A' ? enemyShipsAlive : myShipsAlive;
+      document.getElementById('hitCount').textContent = myShots.filter(s => enemyCellMap.has(s)).length + ' влучань';
+      document.getElementById('myHits').textContent = enemyShots.filter(s => myCellMap.has(s)).length + ' попадань по мені';
+    }
+
+    // Перемога
+    if (!winShown && (myShipsAlive === 0 || enemyShipsAlive === 0)) {
+      winShown = true;
+      const iWon = enemyShipsAlive === 0;
+      if (iWon) playWin(); else playHit();
+      showResult(iWon ? '🏆' : '💀', iWon ? 'Перемога!' : 'Поразка!',
+        iWon ? 'Ти потопив весь ворожий флот!' : 'Твій флот знищено...');
+      spawnParticles(window.innerWidth/2, window.innerHeight/2, iWon ? 24 : 8);
+    }
+  });
+}
+
+function updateStatusOnly() {
+  if (!gameStarted) return;
+  const myTurn = cachedTurn === myRole;
   const bar = document.getElementById('statusBar');
   bar.textContent = myTurn ? '🎯 Твій хід — стріляй!' : '⏳ Хід суперника...';
   bar.className = 'status-pill ' + (myTurn ? 'my-turn' : 'enemy-turn');
-  document.getElementById('p1card').classList.toggle('active-turn', data.turn === 'A');
-  document.getElementById('p2card').classList.toggle('active-turn', data.turn === 'B');
+  document.getElementById('p1card').classList.toggle('active-turn', cachedTurn === 'A');
+  document.getElementById('p2card').classList.toggle('active-turn', cachedTurn === 'B');
 
-  // mark cells can fire
-  document.querySelectorAll('#enemyGrid .cell').forEach(c => {
-    const idx = parseInt(c.dataset.idx);
-    c.classList.toggle('can-fire', myTurn && !c.classList.contains('hit') && !c.classList.contains('miss') && !c.classList.contains('sunk'));
-  });
-
-  // check win
-  if (myShipsAlive === 0 || enemyShipsAlive === 0) {
-    const iWon = enemyShipsAlive === 0;
-    if (iWon) playWin(); else playHit();
-    showResult(iWon ? '🏆' : '💀', iWon ? 'Перемога!' : 'Поразка!',
-      iWon ? 'Ти потопив весь ворожий флот!' : 'Твій флот знищено...');
-    spawnParticles(window.innerWidth/2, window.innerHeight/2, iWon ? 24 : 8);
+  // can-fire тільки на незайнятих клітинках
+  if (enemyGridCells) {
+    for (let i = 0; i < enemyGridCells.length; i++) {
+      const c = enemyGridCells[i];
+      const used = c.classList.contains('hit') || c.classList.contains('miss') || c.classList.contains('sunk');
+      c.classList.toggle('can-fire', myTurn && !used);
+    }
   }
 }
 
@@ -1050,46 +1146,9 @@ function isShipSunk(ship, shots) {
   return ship.cells.every(c => shotSet.has(c));
 }
 
-function renderEnemyGrid(myShots, enemyShips) {
-  const shotSet = new Set(myShots);
-  const allShipCells = new Set();
-  enemyShips.forEach(s => s.cells.forEach(c => allShipCells.add(c)));
-  const cells = document.querySelectorAll('#enemyGrid .cell');
-  cells.forEach((cell, i) => {
-    cell.className = 'cell';
-    if (shotSet.has(i)) {
-      if (allShipCells.has(i)) {
-        // check if ship is sunk
-        const ship = enemyShips.find(s => s.cells.includes(i));
-        if (ship && isShipSunk(ship, myShots)) cell.classList.add('sunk');
-        else cell.classList.add('hit');
-      } else {
-        cell.classList.add('miss');
-      }
-    }
-  });
-}
-
-function renderMyGrid(enemyShots, myShipData, data) {
-  const shotSet = new Set(enemyShots);
-  const allShipCells = new Set();
-  myShipData.forEach(s => s.cells.forEach(c => allShipCells.add(c)));
-  const cells = document.querySelectorAll('#myGrid .cell');
-  cells.forEach((cell, i) => {
-    cell.className = 'cell';
-    if (allShipCells.has(i)) {
-      const ship = myShipData.find(s => s.cells.includes(i));
-      if (shotSet.has(i)) {
-        if (ship && isShipSunk(ship, enemyShots)) cell.classList.add('sunk');
-        else cell.classList.add('hit');
-      } else {
-        cell.classList.add('ship-placed');
-      }
-    } else if (shotSet.has(i)) {
-      cell.classList.add('miss');
-    }
-  });
-}
+function renderEnemyGrid(myShots, enemyShips) {}
+function renderMyGrid(enemyShots, myShipData, data) {}
+function updateGameScreen(data) {}
 
 // ── FIRE ──
 function fireAt(idx) {
